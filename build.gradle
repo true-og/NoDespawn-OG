@@ -36,6 +36,13 @@ repositories {
 
         url "https://repo.purpurmc.org/snapshots" 
 
+	}
+
+	maven {
+
+		name = "CodeMC"
+        url = uri("https://repo.codemc.org/repository/maven-public/")
+
     }
 
 }
@@ -43,6 +50,8 @@ repositories {
 dependencies {
 
     compileOnly "org.purpurmc.purpur:purpur-api:1.18.2-R0.1-SNAPSHOT"
+
+	implementation("de.tr7zw:item-nbt-api:2.11.1")
 
 }
 
