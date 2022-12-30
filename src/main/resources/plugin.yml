@@ -1,5 +1,7 @@
-main: org.gamingtime.nodespawn.Main
-name: NoDespawn
-api-version: "1.13"
-api: "1.16.4"
-version: "1.0"
+main: net.trueog.nodespawnog.Main
+name: NoDespawn-OG
+author: BadPylot
+description: A Spigot plugin that allows you to easily determine when exactly you or others first joined the server!
+website: https://github.com/NotAlexNoyle/NoDespawn-OG
+version: 1.0
+api-version: 1.18

@@ -1,0 +1,75 @@
+plugins {
+
+    id "java"
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+    
+}
+
+group = "net.trueog.nodespawn-og"
+version = "2.0"
+
+def apiVersion = "1.18.2"
+def targetJavaVersion = 17
+
+processResources {
+
+    def props = [
+        version: version,
+        apiVersion: apiVersion,
+    ]
+
+    inputs.properties props // indicates to rerun if version changes
+
+    filesMatching("plugin.yml") {
+
+        expand props
+
+    }
+
+}
+
+repositories {
+
+    mavenCentral()
+
+    maven {
+
+        url "https://repo.purpurmc.org/snapshots" 
+
+    }
+
+}
+
+dependencies {
+
+    compileOnly "org.purpurmc.purpur:purpur-api:1.18.2-R0.1-SNAPSHOT"
+
+}
+
+shadowJar {
+
+    minimize()
+    
+}
+
+jar.dependsOn shadowJar
+
+tasks.jar.configure {
+
+    classifier = "part"
+    
+}
+
+tasks.shadowJar.configure {
+
+    classifier = null
+
+}
+
+compileJava {
+
+    options.compilerArgs += ["-parameters"]
+    options.fork = true
+    options.forkOptions.executable = 'javac'
+
+}
