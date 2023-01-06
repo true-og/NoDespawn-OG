@@ -1,6 +1,5 @@
 package net.trueog.nodespawnog;
 
-import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Item;
 import org.bukkit.event.EventHandler;
@@ -14,7 +13,7 @@ import de.tr7zw.changeme.nbtapi.NBTEntity;
 public class EventListener implements Listener {
 	
 	// Enable the conversion of text from config.yml to objects.
-    public FileConfiguration config = Bukkit.getPluginManager().getPlugin("NoDespawn-OG").getConfig();
+    public FileConfiguration config = NoDespawnOG.getPlugin().getConfig();
     
     // If despawn time is set to this, it never changes.
     public short minimumValue = -32768;
@@ -35,7 +34,7 @@ public class EventListener implements Listener {
 	    // If the value the user entered is acceptable, do this.
 	    else {
 
-	    	// Convert valid in to short for data type compliance.
+	    	// Convert valid int to short for data type compliance.
 	        return (short) (-1 * (valueOfDespawnTime) - 6000);
 
 	    }
@@ -44,51 +43,39 @@ public class EventListener implements Listener {
 
     // Override entityDeathEvent with the highest possible priority.
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void entityDeathEvent(EntityDeathEvent event) {
+    public void entityDeathEvent(EntityDeathEvent PlayerDeathEvent) {
 
-        // If a player did not die, do this.
-        if (! event.getEntity().getType().equals(org.bukkit.entity.EntityType.PLAYER)) {
+        // If a player died, do this.
+        if (PlayerDeathEvent.getEntity().getType().equals(org.bukkit.entity.EntityType.PLAYER)) {
 
-        	System.out.println("Entity died that was NOT a player.");
-        	
-        	// Do nothing.
-            return;
+        	// If the player's inventory was not empty, do this.
+        	if(! PlayerDeathEvent.getDrops().isEmpty()) {
+        		
+        		// If despawn option is enabled in config file, do this.
+                if(config.getBoolean("disable-despawns") == true) {
+                	
+                    // For each intended drop item, do this.
+                	PlayerDeathEvent.getDrops().forEach(element -> {
+                    	
+                    	// Get what the item was.
+                        Item droppedItem = PlayerDeathEvent.getEntity().getWorld().dropItem(PlayerDeathEvent.getEntity().getLocation(), element);
+                        
+                        // Create a new item drop of the same thing using NBT.
+                        NBTEntity newDropNBT = new NBTEntity(droppedItem);
+
+                        // Set spawned items upon death to stay spawned in infinitely
+                        newDropNBT.setShort("Age", despawnTime());
+
+                    });
+                	
+                    // Delete the original entities to prevent duplication.
+                    PlayerDeathEvent.getDrops().clear();
+                	
+                }
+        		
+        	}
 
         }
-        // If a player did die, but their inventory was empty, do this.
-        else if(event.getDrops().isEmpty()) {
-        	
-        	Bukkit.getPluginManager().getPlugin("NoDespawn-OG").getLogger().info("Player died with an empty inventory.");
-        	
-        	// Do nothing
-            return;
-
-        }
-        
-        if(config.getBoolean("disable-despawns") == true) {
-        	
-        	Bukkit.getPluginManager().getPlugin("NoDespawn-OG").getLogger().info("disable-despawns boolean in config is true.");
-        	
-            // For each intended drop item, do this.
-            event.getDrops().forEach(element -> {
-            	
-            	// Get what the item was.
-                Item droppedItem = event.getEntity().getWorld().dropItem(event.getEntity().getLocation(), element);
-                
-            	Bukkit.getPluginManager().getPlugin("NoDespawn-OG").getLogger().info("Dropped item:" + droppedItem);
-                
-                // Create a new item drop of the same thing using NBT.
-                NBTEntity newDropNBT = new NBTEntity(droppedItem);
-
-                // Set spawned items upon death to stay spawned in infinitely
-                newDropNBT.setShort("Age", despawnTime());
-
-            });
-        	
-        }
-
-        // Delete the original entities to prevent duplication.
-        event.getDrops().clear();
 
     }
 

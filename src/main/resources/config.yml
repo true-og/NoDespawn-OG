@@ -1,4 +1,4 @@
-# NoDespawn-OG Config
+# NoDespawn-OG 2.0 Config
 
 # Should item despawning be completely disabled on player death?
 disable-despawns: true
