@@ -1,13 +1,14 @@
-# NoDespawn-OG 2.0 Config
+# NoDespawn-OG 2.1 Config.
 
 # Should item despawning be completely disabled on player death?
-disable-death-despawns: false
+disable-death-despawns: true
 
 # How long should all other entities take to despawn? (in ticks).
 # The vanilla behavior is 300 seconds, or 5 Minutes (roughly 6000 ticks).
+# This will not impact non-death-pile entities until 3.0.
 time-to-despawn: 6000
 
 # If disable despawns is set to false, how long (in ticks) should items dropped on death last until despawn?
 # Values range from 0 (instant despawn) to 32767 ticks (roughly 27 minutes).
 # If higher than the max or lower than the min, defaults to the value of time-to-despawn above.
-time-to-death-despawns: 32768
+time-to-death-despawns: 12000

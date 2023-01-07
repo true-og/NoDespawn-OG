@@ -23,7 +23,7 @@ public class NoDespawnOG extends JavaPlugin {
 		saveDefaultConfig();
 
 		// Log valid plugin launch to console.
-		getLogger().info("NoDespawn 2.0 Loaded.");
+		getLogger().info("NoDespawn 2.1 Loaded.");
 
 	}
 
@@ -31,7 +31,7 @@ public class NoDespawnOG extends JavaPlugin {
 	@Override public void onDisable() {
 
 		// Log valid plugin shut-down to console.
-		getLogger().info("NoDespawn 2.0 Shut Down without errors.");
+		getLogger().info("NoDespawn 2.1 Shut Down without errors.");
 
 	}
 

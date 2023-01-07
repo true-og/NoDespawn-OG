@@ -3,5 +3,5 @@ name: NoDespawn-OG
 authors: [BadPylot, NotAlexNoyle]
 description: A Spigot plugin that allows you to easily determine when exactly you or others first joined the server!
 website: https://github.com/NotAlexNoyle/NoDespawn-OG
-version: 2.0
+version: 2.1
 api-version: 1.18

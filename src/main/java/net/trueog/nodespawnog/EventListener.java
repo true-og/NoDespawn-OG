@@ -27,9 +27,12 @@ public class EventListener implements Listener {
 		// Read config for death despawn in such a way as to validate that it would be a valid 'short'.
 		try {
 
-			// TOOD: Fix any valueOfDespawnTime causing an instant despawn.
-			// Get short from config file with error handling.
-			valueOfDespawnTime = Short.valueOf(config.getString("time-to-death-despawns"));
+			// TODO: Allow for specifying time in seconds, minutes, or hours, instead of ticks.
+			// Get value for time to death despawns from config file.
+			int intOfDespawnTime = config.getInt("time-to-death-despawns");
+
+			// Convert the integer specified by the user to a negative short via a string for data type compliance and error handling.
+			valueOfDespawnTime = Short.valueOf(String.valueOf(-1 * intOfDespawnTime));
 
 			// Set short to valid user-set death despawn time.
 			// This will only run if the short the user specified in the config was in range.
@@ -39,11 +42,8 @@ public class EventListener implements Listener {
 		// If the value the user set in the config is out of range, do this.
 		catch(NumberFormatException error) {
 
-			// TODO: DEV LOG, REMOVE!
-			NoDespawnOG.getPlugin().getLogger().info("Exception caught! " + error.getMessage() + "Time to despawns:" + config.getInt("time-to-death-despawns"));
-
 			// Return default value of 6000 ticks (5 minutes) to replace invalid user-set value in the config.
-			return Short.valueOf("6000");
+			return Short.valueOf(String.valueOf(-1 * 6000));
 
 		}
 
@@ -96,9 +96,6 @@ public class EventListener implements Listener {
 						newDropNBT.setShort("Age", valueOfDespawnTime());
 
 					});
-
-					// TODO: DEV LOG, REMOVE!
-					NoDespawnOG.getPlugin().getLogger().info("Items will despawn in: " + valueOfDespawnTime());
 
 					// Delete the original entities to prevent duplication.
 					PlayerDeathEvent.getDrops().clear();

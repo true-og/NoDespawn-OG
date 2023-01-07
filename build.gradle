@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.trueog.nodespawnog" // Declare package name.
-version = "2.0" // Declare package version.
+version = "2.1" // Declare package version.
 
 def apiVersion = "1.18.2" // Declare minecraft server target version.
 def targetJavaVersion = 17 // Declare java compatibility minimum.
