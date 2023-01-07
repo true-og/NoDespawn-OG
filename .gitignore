@@ -4,6 +4,9 @@
 # Eclipse classpath file
 *.classpath
 
+# Eclipse project file
+*.project
+
 # Log file
 *.log
 
