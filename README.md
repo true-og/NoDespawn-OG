@@ -1,6 +1,6 @@
 # NoDespawn-OG
 
-![Icon](https://github.com/NotAlexNoyle/NoDespawn-OG/blob/main/assets/nodespawn-og-logo.png?raw=true)
+![Icon](https://raw.githubusercontent.com/NotAlexNoyle/NoDespawn-OG/master/assets/nodespawn-og-logo-small.png)
 
 A more sophisticated fork of NoDespawn made for the [TrueOG](https://true-og.net/) Network designed to replace the proprietary ClearLag plugin and its extension SaveDeathDrops.
 
