@@ -1,5 +1,7 @@
 # NoDespawn-OG
 
+![Icon](https://github.com/NotAlexNoyle/NoDespawn-OG/blob/main/assets/nodespawn-og-logo.png?raw=true)
+
 A more sophisticated fork of NoDespawn made for the [TrueOG](https://true-og.net/) Network designed to replace the proprietary ClearLag plugin and its extension SaveDeathDrops.
 
 Current Target: Purpur 1.18.2
