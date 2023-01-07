@@ -61,7 +61,7 @@ shadowJar {
 
     minimize()
     
-    relocate 'de.tr7zw:item-nbt-api', 'net.trueog.nodespawnog' // Prevent conflicts with other NBT-API utilizing plugins.
+    relocate 'de.tr7zw', 'net.trueog.nodespawnog.item-nbt-api' // Prevent conflicts with other NBT-API utilizing plugins.
     
 }
 
