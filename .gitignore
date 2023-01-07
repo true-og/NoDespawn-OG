@@ -7,6 +7,12 @@
 # Eclipse project file
 *.project
 
+# Eclipse settings
+*.settings
+
+# Gradle build output
+bin/
+
 # Log file
 *.log
 

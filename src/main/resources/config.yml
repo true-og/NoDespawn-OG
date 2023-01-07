@@ -3,12 +3,11 @@
 # Should item despawning be completely disabled on player death?
 disable-death-despawns: false
 
-# If disable despawns is set to false, how long (in ticks) should items dropped on death last until despawn?
-# This config value is irrelevant unless disable-despawns is set to false.
-# Values range from 0 (instant despawn) to 32767 ticks (roughly 27 minutes).
-# If higher than the max or lower than the min, defaults to vanilla (5 minutes/6000 ticks).
-time-to-death-despawns: 32767
-
 # How long should all other entities take to despawn? (in ticks).
 # The vanilla behavior is 300 seconds, or 5 Minutes (roughly 6000 ticks).
-time-to-despawn: 12000
+time-to-despawn: 6000
+
+# If disable despawns is set to false, how long (in ticks) should items dropped on death last until despawn?
+# Values range from 0 (instant despawn) to 32767 ticks (roughly 27 minutes).
+# If higher than the max or lower than the min, defaults to the value of time-to-despawn above.
+time-to-death-despawns: 32768

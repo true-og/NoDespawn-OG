@@ -5,42 +5,42 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 // init main.
 public class NoDespawnOG extends JavaPlugin {
-	
+
 	// Declare plugin instance.
 	private static NoDespawnOG plugin;
 
 	// This gets run when the plugin starts.
-    @Override
-    public void onEnable() {
-    	
-    	// Set plugin instance.
-    	plugin = this;
+	@Override
+	public void onEnable() {
 
-    	// Register events so that they get run by the server.
-        getServer().getPluginManager().registerEvents(new EventListener(), (Plugin) this);
+		// Set plugin instance.
+		plugin = this;
 
-        // Create config file if it doesn't exist.
-        saveDefaultConfig();
+		// Register events so that they get run by the server.
+		getServer().getPluginManager().registerEvents(new EventListener(), (Plugin) this);
 
-        // Log valid plugin launch to console.
-        getLogger().info("NoDespawn 2.0 Loaded.");
-    
-    }
+		// Create config file if it doesn't exist.
+		saveDefaultConfig();
 
-    // This gets run when the plugin shuts down.
-    @Override public void onDisable() {
-    	 
-    	// Log valid plugin shut-down to console.
-    	getLogger().info("NoDespawn 2.0 Shut Down without errors.");
-    	 
-     }
-    
-    // Accessor constructor so that the main class (this) can be referenced from other classes.
-    public static NoDespawnOG getPlugin() {
+		// Log valid plugin launch to console.
+		getLogger().info("NoDespawn 2.0 Loaded.");
 
-    	// Pass instance of main.
-    	return plugin;
-    	
-    }
+	}
+
+	// This gets run when the plugin shuts down.
+	@Override public void onDisable() {
+
+		// Log valid plugin shut-down to console.
+		getLogger().info("NoDespawn 2.0 Shut Down without errors.");
+
+	}
+
+	// Accessor constructor so that the main class (this) can be referenced from other classes.
+	public static NoDespawnOG getPlugin() {
+
+		// Pass instance of main.
+		return plugin;
+
+	}
 
 }
