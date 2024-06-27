@@ -8,7 +8,7 @@ plugins {
 group = "net.trueog.nodespawnog" // Declare package name.
 version = "2.1" // Declare package version.
 
-def apiVersion = "1.18.2" // Declare minecraft server target version.
+def apiVersion = "1.19.4" // Declare minecraft server target version.
 def targetJavaVersion = 17 // Declare java compatibility minimum.
 
 apply plugin: "eclipse" // Enable integration with Eclipse IDE for development.
@@ -66,23 +66,3 @@ shadowJar {
 }
 
 jar.dependsOn shadowJar
-
-tasks.jar.configure {
-
-    classifier = "part"
-    
-}
-
-tasks.shadowJar.configure {
-
-    classifier = null
-
-}
-
-compileJava {
-
-    options.compilerArgs += ["-parameters"]
-    options.fork = true
-    options.forkOptions.executable = 'javac'
-
-}
