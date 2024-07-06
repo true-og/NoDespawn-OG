@@ -1,18 +1,6 @@
 # Compiled class file
 *.class
 
-# Eclipse classpath file
-*.classpath
-
-# Eclipse project file
-*.project
-
-# Eclipse settings
-*.settings
-
-# Gradle build output
-bin/
-
 # Log file
 *.log
 
@@ -33,7 +21,17 @@ bin/
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+replay_pid*
 
-# Gradle post-build folders
-.gradle
+# macOS system files
+.DS_Store
+
+# gradle build output files
 build/
+.gradle/
+
+# eclipse project files
+.settings/
+.project
+.classpath
+bin/
