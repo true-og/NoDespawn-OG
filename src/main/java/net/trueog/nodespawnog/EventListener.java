@@ -38,6 +38,7 @@ public class EventListener implements Listener {
 
             // Default to 5 minutes (using ticks).
             return Short.valueOf(String.valueOf(-1 * 6000));
+
         }
 
         // Deconstruct and interpret the user-specified time string.
@@ -53,6 +54,7 @@ public class EventListener implements Listener {
             int value = Integer.parseInt(timeString.replaceAll("\\D", ""));
 
             switch (unit.toLowerCase()) {
+
                 case "s":
                     // Convert seconds to ticks.
                     time = value * 20L;
@@ -68,6 +70,7 @@ public class EventListener implements Listener {
                 default:
                     // Default to ticks if no unit is provided.
                     time = value;
+
             }
 
             // Start the countdown to despawn.
@@ -79,7 +82,9 @@ public class EventListener implements Listener {
 
             // Default to 5 minutes (using ticks).
             return Short.valueOf(String.valueOf(-1 * 6000));
+
         }
+
     }
 
     // Prioritize this event listener over all other plugins.
@@ -92,6 +97,7 @@ public class EventListener implements Listener {
 
             // If the entity is not a player, skip this event.
             return;
+
         }
 
         // If the player's inventory was not empty...
@@ -101,13 +107,12 @@ public class EventListener implements Listener {
             event.getDrops().forEach(itemStack -> {
 
                 // Get each item from the dropped entities.
-                Item droppedItem =
-                        event.getEntity().getWorld().dropItem(event.getEntity().getLocation(), itemStack);
+                Item droppedItem = event.getEntity().getWorld().dropItem(event.getEntity().getLocation(), itemStack);
                 NBTItem nbtItem = new NBTItem(itemStack);
 
                 // Set the Age tag based on the value set in the config file.
-                nbtItem.setShort(
-                        "Age", config.getBoolean("disable-death-despawns") ? minimumValue : calculateDespawnTime());
+                nbtItem.setShort("Age",
+                        config.getBoolean("disable-death-despawns") ? minimumValue : calculateDespawnTime());
 
                 // Save the modified NBT data.
                 PersistentDataContainer pdc = droppedItem.getPersistentDataContainer();
@@ -117,11 +122,14 @@ public class EventListener implements Listener {
                 // Apply the modified NBTItem back to the ItemStack and update the dropped Item.
                 itemStack = nbtItem.getItem();
                 droppedItem.setItemStack(itemStack);
+
             });
 
             // Clear the original drops.
             event.getDrops().clear();
+
         }
+
     }
 
     // Runs every time a chunk is loaded.
@@ -158,9 +166,13 @@ public class EventListener implements Listener {
 
                     // Update the Item with the modified ItemStack.
                     item.setItemStack(itemStack);
+
                 }
+
             }
+
         }
+
     }
 
     // Runs every time a world is loaded.
@@ -188,8 +200,7 @@ public class EventListener implements Listener {
                     if (pdc.has(key, PersistentDataType.INTEGER)) {
 
                         // Derive the item age.
-                        short savedAge =
-                                pdc.get(key, PersistentDataType.INTEGER).shortValue();
+                        short savedAge = pdc.get(key, PersistentDataType.INTEGER).shortValue();
 
                         // Get the ItemStack from the Item.
                         ItemStack itemStack = item.getItemStack();
@@ -201,9 +212,15 @@ public class EventListener implements Listener {
 
                         // Update the Item with the modified ItemStack.
                         item.setItemStack(itemStack);
+
                     }
+
                 }
+
             }
+
         }
+
     }
+
 }

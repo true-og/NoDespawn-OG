@@ -24,6 +24,7 @@ public class NoDespawnOG extends JavaPlugin {
 
         // Log valid plugin launch to console.
         getLogger().info("NoDespawn 2.2 Loaded.");
+
     }
 
     // This gets run when the plugin shuts down.
@@ -32,12 +33,16 @@ public class NoDespawnOG extends JavaPlugin {
 
         // Log valid plugin shut-down to console.
         getLogger().info("NoDespawn 2.2 Shut Down without errors.");
+
     }
 
-    // Accessor constructor so that the main class (this) can be referenced from other classes.
+    // Accessor constructor so that the main class (this) can be referenced from
+    // other classes.
     public static NoDespawnOG getPlugin() {
 
         // Pass instance of main.
         return plugin;
+
     }
+
 }
