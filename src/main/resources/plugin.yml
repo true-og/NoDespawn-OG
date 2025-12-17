@@ -1,7 +1,26 @@
 main: net.trueog.nodespawnog.NoDespawnOG
 name: NoDespawn-OG
 authors: [BadPylot, NotAlexNoyle]
-description: A Spigot plugin that allows you to easily determine when exactly you or others first joined the server!
-website: https://github.com/NotAlexNoyle/NoDespawn-OG
+description: A Spigot/Paper/Purpur plugin to control item despawn behavior. Crafted by TrueOG Network.
+website: https://github.com/true-og/NoDespawn-OG
 version: '${version}'
-api-version: 1.19
+api-version: '${apiVersion}'
+depend: [Utilities-OG]
+
+commands:
+  clearentities:
+    description: Clears non-death-pile dropped items in all loaded chunks.
+    usage: /clearentities
+    permission: nodespawnog.clearentities
+  cleanupin:
+    description: Informs players how long it is until entity cleanup on-demand.
+    usage: /cleanupin
+    permission: nodespawnog.cleanupin
+
+permissions:
+  nodespawnog.clearentities:
+    description: Allows running /clearentities.
+    default: op
+  nodespawnog.cleanupin:
+    description: Allow running /cleanupin.
+    default: op

@@ -1,13 +1,22 @@
 package net.trueog.nodespawnog;
 
-import org.bukkit.plugin.Plugin;
+import java.util.List;
+
+import org.bukkit.Bukkit;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
-// init main.
+import net.trueog.utilitiesog.UtilitiesOG;
+
+// Init main.
 public class NoDespawnOG extends JavaPlugin {
 
-    // Declare plugin instance.
+    // Declare fields.
     private static NoDespawnOG plugin;
+    private EntityCleanupScheduler cleanupScheduler;
+    private EventListener eventListener;
+    public static List<World> serverWorlds;
 
     // This gets run when the plugin starts.
     @Override
@@ -16,14 +25,38 @@ public class NoDespawnOG extends JavaPlugin {
         // Set plugin instance.
         plugin = this;
 
-        // Register events so that they get run by the server.
-        getServer().getPluginManager().registerEvents(new EventListener(), (Plugin) this);
-
         // Create config file if it doesn't exist.
         saveDefaultConfig();
 
+        // Start the entity cleanup scheduler.
+        cleanupScheduler = new EntityCleanupScheduler();
+        cleanupScheduler.runTaskTimer(this, 20L, 20L);
+
+        // Register events so that they get run by the server and its functions are
+        // callable by this class.
+        eventListener = new EventListener();
+        getServer().getPluginManager().registerEvents(eventListener, this);
+
+        // Scan chunks that were loaded before the plugin got enabled for entities to
+        // track.
+        Bukkit.getScheduler().runTask(this, eventListener::scanLoadedChunks);
+
+        // Initialize the /clearentities command.
+        if (getCommand("clearentities") != null) {
+
+            getCommand("clearentities").setExecutor(new ClearEntitiesCommand(cleanupScheduler));
+
+        }
+
+        // Initialize the /cleanupin command.
+        if (getCommand("cleanupin") != null) {
+
+            getCommand("cleanupin").setExecutor(new CleanupInCommand(cleanupScheduler));
+
+        }
+
         // Log valid plugin launch to console.
-        getLogger().info("NoDespawn 2.2 Loaded.");
+        getLogger().info("NoDespawn-OG 4.0 Loaded.");
 
     }
 
@@ -31,17 +64,44 @@ public class NoDespawnOG extends JavaPlugin {
     @Override
     public void onDisable() {
 
+        if (cleanupScheduler != null) {
+
+            cleanupScheduler.cancel();
+            cleanupScheduler = null;
+
+        }
+
+        eventListener = null;
+
         // Log valid plugin shut-down to console.
-        getLogger().info("NoDespawn 2.2 Shut Down without errors.");
+        UtilitiesOG.logToConsole(getPrefix(), "Shut down without errors.");
 
     }
 
-    // Accessor constructor so that the main class (this) can be referenced from
-    // other classes.
+    // Getter for the plugin instance running on the server.
     public static NoDespawnOG getPlugin() {
 
-        // Pass instance of main.
         return plugin;
+
+    }
+
+    public static String getPrefix() {
+
+        return "&7[&eNoDespawn&f-&4OG&7] &r";
+
+    }
+
+    public static List<World> getServerWorlds() {
+
+        serverWorlds = Bukkit.getWorlds();
+
+        return serverWorlds;
+
+    }
+
+    public static void broadcastCleanupMessage(String message) {
+
+        Bukkit.getOnlinePlayers().forEach((Player player) -> UtilitiesOG.trueogMessage(player, message));
 
     }
 

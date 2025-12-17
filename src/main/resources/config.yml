@@ -1,14 +1,34 @@
-# NoDespawn-OG 3.0 Config.
+# NoDespawn-OG 4.0 Configuration File.
+#
+# Time format:
+# - ticks (6000 = 5m): 6000
+# - seconds: 10s
+# - minutes: 30m
+# - hours: 1h
 
 # Should item despawning be completely disabled on player death?
+# If true, death pile items won't despawn unless limited by death-pile-protection.
 disable-death-despawns: true
 
-# How long should all other entities take to despawn? (in ticks, seconds (s), minutes (m), or hours (h))
-# The vanilla behavior is 300 seconds, or 5 Minutes (roughly 6000 ticks).
-# If the format of this option is invalid, NoDespawn-OG will default to 5 minutes.
-time-to-despawn: 5m 
+# How long should non-death-pile dropped items take to despawn?
+# Vanilla is 6000 ticks.
+time-to-despawn: 30m
 
-# If disable despawns is set to false, how long (in ticks, seconds (s), minutes (m), or hours (h)) 
-# should items dropped on death last until despawn?
-# If higher than the max or lower than the min, defaults to the value of time-to-despawn above.
-time-to-death-despawns: 20m
+# If disable-death-despawns is false, how long should death pile items last before despawning?
+# If disable-death-despawns is true, this setting is ignored unless overflow-despawn is run.
+time-to-death-despawns: 30m
+
+# How often to run the automatic dropped-entity cleanup across all loaded chunks.
+entity-cleanup-interval: 30m
+
+death-pile-protection:
+  # Enables per-player-per-chunk caps to prevent death piles being used for lag.
+  enabled: true
+
+  # A player can only have X protected death piles/items in a given chunk. 0 means unlimited for that cap.
+  max-piles-per-player-per-chunk: 12
+  max-items-per-player-per-chunk: 1000
+
+  # When the cap is exceeded, the oldest protected piles in that chunk start despawning normally.
+  # This duration controls how long overflowed piles last before being eligible to despawn.
+  overflow-despawn: 10s

@@ -1,9 +1,17 @@
 package net.trueog.nodespawnog;
 
-import de.tr7zw.changeme.nbtapi.NBTItem;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.apache.commons.lang3.StringUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.NamespacedKey;
-import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
@@ -12,214 +20,643 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.ItemDespawnEvent;
+import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.WorldLoadEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
-// Class to watch for in-game events.
 public class EventListener implements Listener {
 
-    // Enable the conversion of text from config.yml to objects.
-    public FileConfiguration config = NoDespawnOG.getPlugin().getConfig();
+    private final FileConfiguration config = NoDespawnOG.getPlugin().getConfig();
 
-    // If despawn time is set to this, it never changes.
-    public short minimumValue = -32768;
+    private final NamespacedKey keyDeath = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_death");
+    private final NamespacedKey keyOwner = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_owner");
+    private final NamespacedKey keyPile = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_pile");
+    private final NamespacedKey keyCreated = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_created");
+    private final NamespacedKey keyExpireAt = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_expire_at");
 
-    // Determine the despawn time using the number taken from the config file.
-    private short calculateDespawnTime() {
+    private static final int VANILLA_DESPAWN_TICKS = 6000;
+    private static final long TICK_MS = 50L;
 
-        // Get the user-defined despawn time from the config file.
-        String timeString = config.getString("time-to-death-despawns");
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onItemSpawn(ItemSpawnEvent event) {
 
-        // If the config value is empty, do this...
-        if (timeString == null || timeString.isEmpty()) {
-
-            // Default to 5 minutes (using ticks).
-            return Short.valueOf(String.valueOf(-1 * 6000));
-
-        }
-
-        // Deconstruct and interpret the user-specified time string.
-        try {
-
-            // Declare a variable to hold the time.
-            long time;
-
-            // Extract the unit (s, m, h).
-            String unit = timeString.replaceAll("\\d", "");
-
-            // Extract the numeric value.
-            int value = Integer.parseInt(timeString.replaceAll("\\D", ""));
-
-            switch (unit.toLowerCase()) {
-
-                case "s":
-                    // Convert seconds to ticks.
-                    time = value * 20L;
-                    break;
-                case "m":
-                    // Convert minutes to ticks.
-                    time = value * 20L * 60L;
-                    break;
-                case "h":
-                    // Convert hours to ticks.
-                    time = value * 20L * 60L * 60L;
-                    break;
-                default:
-                    // Default to ticks if no unit is provided.
-                    time = value;
-
-            }
-
-            // Start the countdown to despawn.
-            return Short.valueOf(String.valueOf(-1 * time));
-
-        }
-        // If the user-specified time string is in an invalid format, do this...
-        catch (NumberFormatException error) {
-
-            // Default to 5 minutes (using ticks).
-            return Short.valueOf(String.valueOf(-1 * 6000));
-
-        }
+        ensureExpireData(event.getEntity());
 
     }
 
-    // Prioritize this event listener over all other plugins.
     @EventHandler(priority = EventPriority.HIGHEST)
-    // Runs whenever an entity dies.
-    public void entityDeathEvent(EntityDeathEvent event) {
+    public void onItemDespawn(ItemDespawnEvent event) {
 
-        // Check if the entity is a player.
-        if (!(event.getEntity() instanceof Player)) {
+        final Item item = event.getEntity();
+        final long expireAt = getExpireAt(item);
+        if (expireAt == 0L) {
 
-            // If the entity is not a player, skip this event.
             return;
 
         }
 
-        // If the player's inventory was not empty...
-        if (!event.getDrops().isEmpty()) {
+        final long now = System.currentTimeMillis();
 
-            // Loop through every item in the death pile.
-            event.getDrops().forEach(itemStack -> {
+        if (expireAt == Long.MAX_VALUE) {
 
-                // Get each item from the dropped entities.
-                Item droppedItem = event.getEntity().getWorld().dropItem(event.getEntity().getLocation(), itemStack);
-                NBTItem nbtItem = new NBTItem(itemStack);
+            event.setCancelled(true);
 
-                // Set the Age tag based on the value set in the config file.
-                nbtItem.setShort("Age",
-                        config.getBoolean("disable-death-despawns") ? minimumValue : calculateDespawnTime());
+            item.setTicksLived(1);
 
-                // Save the modified NBT data.
-                PersistentDataContainer pdc = droppedItem.getPersistentDataContainer();
-                NamespacedKey key = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_age");
-                pdc.set(key, PersistentDataType.INTEGER, (int) nbtItem.getShort("Age"));
-
-                // Apply the modified NBTItem back to the ItemStack and update the dropped Item.
-                itemStack = nbtItem.getItem();
-                droppedItem.setItemStack(itemStack);
-
-            });
-
-            // Clear the original drops.
-            event.getDrops().clear();
+            return;
 
         }
 
+        // Allow despawning if its time.
+        if (now >= expireAt) {
+
+            return;
+
+        }
+
+        event.setCancelled(true);
+
+        scheduleVanillaDespawnCheck(item, now, expireAt);
+
     }
 
-    // Runs every time a chunk is loaded.
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void entityDeathEvent(EntityDeathEvent event) {
+
+        if (!(event.getEntity() instanceof Player player)) {
+
+            return;
+
+        }
+
+        if (event.getDrops().isEmpty()) {
+
+            return;
+
+        }
+
+        enforcePlayerPerChunkLimits(player, player.getLocation().getChunk(), event.getDrops().size(), 1, getMaxPiles(),
+                getMaxItems());
+
+        final boolean disableDeathDespawns = config.getBoolean("disable-death-despawns");
+        final int deathLifetimeTicks = calculateDespawnTime("time-to-death-despawns");
+
+        final String ownerStr = player.getUniqueId().toString();
+        final String pileId = UUID.randomUUID().toString();
+        final long created = System.currentTimeMillis();
+        final long expireAt = disableDeathDespawns ? Long.MAX_VALUE : (created + ticksToMs(deathLifetimeTicks));
+
+        event.getDrops().stream().map(itemStack -> player.getWorld().dropItem(player.getLocation(), itemStack))
+                .forEach(droppedItem ->
+                {
+
+                    final PersistentDataContainer pdc = droppedItem.getPersistentDataContainer();
+
+                    pdc.set(keyDeath, PersistentDataType.BYTE, (byte) 1);
+                    pdc.set(keyOwner, PersistentDataType.STRING, ownerStr);
+                    pdc.set(keyPile, PersistentDataType.STRING, pileId);
+                    pdc.set(keyCreated, PersistentDataType.LONG, created);
+                    pdc.set(keyExpireAt, PersistentDataType.LONG, expireAt);
+
+                    scheduleVanillaDespawnCheck(droppedItem, created, expireAt);
+
+                });
+
+        event.getDrops().clear();
+
+    }
+
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
 
-        // Get the chunk that was loaded.
-        Chunk chunk = event.getChunk();
-        // Loop through every entity in the chunk.
-        for (Entity entity : chunk.getEntities()) {
+        handleEntitiesInChunk(event.getChunk());
 
-            // If the entity is an Item, do this...
-            if (entity instanceof Item) {
+    }
 
-                // Cast the entity to an Item since it is one.
-                Item item = (Item) entity;
+    @EventHandler
+    public void onWorldLoad(WorldLoadEvent event) {
 
-                // Declare a container to hold item data.
-                PersistentDataContainer pdc = item.getPersistentDataContainer();
-                NamespacedKey key = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_age");
-                // Check for item age.
-                if (pdc.has(key, PersistentDataType.INTEGER)) {
+        for (Chunk chunk : event.getWorld().getLoadedChunks()) {
 
-                    // Derive the item age.
-                    short savedAge = pdc.get(key, PersistentDataType.INTEGER).shortValue();
-
-                    // Get the ItemStack from the Item.
-                    ItemStack itemStack = item.getItemStack();
-
-                    // Apply the saved age using NBTItem.
-                    NBTItem nbtItem = new NBTItem(itemStack);
-                    nbtItem.setShort("Age", savedAge);
-                    itemStack = nbtItem.getItem();
-
-                    // Update the Item with the modified ItemStack.
-                    item.setItemStack(itemStack);
-
-                }
-
-            }
+            handleEntitiesInChunk(chunk);
 
         }
 
     }
 
-    // Runs every time a world is loaded.
-    @EventHandler
-    public void onWorldLoad(WorldLoadEvent event) {
+    private static long ticksToMs(long ticks) {
 
-        // Get the world that was loaded.
-        World world = event.getWorld();
-        // Loop through all loaded chunks in the world.
-        for (Chunk chunk : world.getLoadedChunks()) {
+        if (ticks <= 0) {
 
-            // Loop through every entity in the chunk.
-            for (Entity entity : chunk.getEntities()) {
+            return 0L;
 
-                // If the entity is an Item, do this...
-                if (entity instanceof Item) {
+        }
 
-                    // Cast the entity to an Item since it is one.
-                    Item item = (Item) entity;
+        final long ms = ticks * TICK_MS;
+        return ms < 0 ? Long.MAX_VALUE : ms;
 
-                    // Declare a container to hold item data.
-                    PersistentDataContainer pdc = item.getPersistentDataContainer();
-                    NamespacedKey key = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_age");
-                    // Check for item age.
-                    if (pdc.has(key, PersistentDataType.INTEGER)) {
+    }
 
-                        // Derive the item age.
-                        short savedAge = pdc.get(key, PersistentDataType.INTEGER).shortValue();
+    private boolean protectionEnabled() {
 
-                        // Get the ItemStack from the Item.
-                        ItemStack itemStack = item.getItemStack();
+        return config.getBoolean("death-pile-protection.enabled", true);
 
-                        // Apply the saved age using NBTItem.
-                        NBTItem nbtItem = new NBTItem(itemStack);
-                        nbtItem.setShort("Age", savedAge);
-                        itemStack = nbtItem.getItem();
+    }
 
-                        // Update the Item with the modified ItemStack.
-                        item.setItemStack(itemStack);
+    private boolean isDeathPileItem(Item item) {
 
-                    }
+        final Byte flag = item.getPersistentDataContainer().get(keyDeath, PersistentDataType.BYTE);
+
+        return Byte.valueOf((byte) 1).equals(flag);
+
+    }
+
+    private long getExpireAt(Item item) {
+
+        final Long v = item.getPersistentDataContainer().get(keyExpireAt, PersistentDataType.LONG);
+
+        return v == null ? 0L : v.longValue();
+
+    }
+
+    private void setExpireAt(Item item, long expireAt) {
+
+        item.getPersistentDataContainer().set(keyExpireAt, PersistentDataType.LONG, expireAt);
+
+    }
+
+    private long ensureCreatedMillis(Item item, long now) {
+
+        final PersistentDataContainer pdc = item.getPersistentDataContainer();
+        final Long created = pdc.get(keyCreated, PersistentDataType.LONG);
+        if (created != null && created.longValue() > 0L) {
+
+            return created.longValue();
+
+        }
+
+        // Infer created time from current ticks lived (always >= 0 on Bukkit side).
+        final int lived = Math.max(0, item.getTicksLived());
+        final long inferred = now - (long) lived * TICK_MS;
+
+        pdc.set(keyCreated, PersistentDataType.LONG, inferred);
+
+        return inferred;
+
+    }
+
+    /**
+     * Set ticksLived safely (>= 1) so vanilla despawn checks happen when we want.
+     */
+    private void scheduleVanillaDespawnCheck(Item item, long now, long expireAt) {
+
+        if (!item.isValid()) {
+
+            return;
+
+        }
+
+        if (expireAt == Long.MAX_VALUE) {
+
+            item.setTicksLived(1);
+
+            return;
+
+        }
+
+        final long remainingMs = expireAt - now;
+        if (remainingMs <= 0L) {
+
+            item.remove();
+
+            return;
+
+        }
+
+        final long remainingTicks = (remainingMs + (TICK_MS - 1)) / TICK_MS;
+
+        if (remainingTicks >= VANILLA_DESPAWN_TICKS) {
+
+            // Too far away to represent (would require negative); schedule another check
+            // 6000 ticks later.
+            item.setTicksLived(1);
+
+            return;
+
+        }
+
+        int age = (int) (VANILLA_DESPAWN_TICKS - remainingTicks);
+
+        age = Math.max(1, age);
+
+        item.setTicksLived(age);
+
+    }
+
+    /**
+     * Ensure expireAt exists for any item we manage.
+     */
+    private void ensureExpireData(Item item) {
+
+        final long now = System.currentTimeMillis();
+        long expireAt = getExpireAt(item);
+        if (expireAt != 0L) {
+
+            scheduleVanillaDespawnCheck(item, now, expireAt);
+
+            return;
+
+        }
+
+        final long created = ensureCreatedMillis(item, now);
+        final boolean disableDeathDespawns = config.getBoolean("disable-death-despawns");
+        if (isDeathPileItem(item)) {
+
+            if (disableDeathDespawns) {
+
+                expireAt = Long.MAX_VALUE;
+                setExpireAt(item, expireAt);
+
+                scheduleVanillaDespawnCheck(item, now, expireAt);
+
+                return;
+
+            }
+
+            final int deathLifetimeTicks = calculateDespawnTime("time-to-death-despawns");
+
+            expireAt = created + ticksToMs(deathLifetimeTicks);
+            setExpireAt(item, expireAt);
+
+            scheduleVanillaDespawnCheck(item, now, expireAt);
+
+            return;
+
+        }
+
+        final int defaultLifetimeTicks = calculateDespawnTime("time-to-despawn");
+
+        expireAt = created + ticksToMs(defaultLifetimeTicks);
+        setExpireAt(item, expireAt);
+
+        scheduleVanillaDespawnCheck(item, now, expireAt);
+
+    }
+
+    // Convert machine time to human time.
+    private int calculateDespawnTime(String configKey) {
+
+        final String raw = config.getString(configKey);
+        if (raw == null) {
+
+            return VANILLA_DESPAWN_TICKS;
+
+        }
+
+        final String timeString = StringUtils.trim(raw);
+        if (StringUtils.isEmpty(timeString)) {
+
+            return VANILLA_DESPAWN_TICKS;
+
+        }
+
+        try {
+
+            final long time;
+
+            // Strips digits and whitespace to leave only unit characters.
+            final String unit = timeString.replaceAll("[\\d\\s]", "");
+
+            // Strips digits and whitespace to leave only digit characters.
+            final String digits = timeString.replaceAll("[^0-9]", "");
+
+            if (StringUtils.isEmpty(digits)) {
+
+                return VANILLA_DESPAWN_TICKS;
+
+            }
+
+            final int value = Integer.parseInt(digits);
+
+            time = switch (StringUtils.lowerCase(unit)) {
+
+                case "s" -> value * 20L;
+                case "m" -> value * 20L * 60L;
+                case "h" -> value * 20L * 60L * 60L;
+                default -> value;
+
+            };
+
+            if (time <= 0) {
+
+                return VANILLA_DESPAWN_TICKS;
+
+            }
+
+            if (time > Integer.MAX_VALUE) {
+
+                return Integer.MAX_VALUE;
+
+            }
+
+            return (int) time;
+
+        } catch (NumberFormatException error) {
+
+            return VANILLA_DESPAWN_TICKS;
+
+        }
+
+    }
+
+    private boolean isProtectedDeathPileItem(Item item) {
+
+        return isDeathPileItem(item) && getExpireAt(item) == Long.MAX_VALUE;
+
+    }
+
+    private String getOwnerString(Item item) {
+
+        return item.getPersistentDataContainer().get(keyOwner, PersistentDataType.STRING);
+
+    }
+
+    private String getPileId(Item item) {
+
+        final String pile = item.getPersistentDataContainer().get(keyPile, PersistentDataType.STRING);
+
+        return (pile == null) ? item.getUniqueId().toString() : pile;
+
+    }
+
+    private long getCreated(Item item) {
+
+        final Long created = item.getPersistentDataContainer().get(keyCreated, PersistentDataType.LONG);
+
+        return created == null ? 0L : created.longValue();
+
+    }
+
+    private void timeoutPile(PileGroup group, int overflowLifetimeTicks) {
+
+        if (group == null) {
+
+            return;
+
+        }
+
+        final long now = System.currentTimeMillis();
+        final long expireAt = now + ticksToMs(overflowLifetimeTicks);
+        for (Iterator<Item> it = group.items.iterator(); it.hasNext();) {
+
+            final Item item = it.next();
+            if (!item.isValid()) {
+
+                it.remove();
+
+                continue;
+
+            }
+
+            setExpireAt(item, expireAt);
+            scheduleVanillaDespawnCheck(item, now, expireAt);
+
+        }
+
+        group.protectedPile = false;
+        group.protectedItemCount = 0;
+
+    }
+
+    private void enforcePlayerPerChunkLimits(Player player, Chunk chunk, int reserveItems, int reservePiles,
+            int maxPiles, int maxItems)
+    {
+
+        if (!protectionEnabled()) {
+
+            return;
+
+        }
+
+        if (!config.getBoolean("disable-death-despawns")) {
+
+            return;
+
+        }
+
+        if (maxPiles == 0 && maxItems == 0) {
+
+            return;
+
+        }
+
+        final int overflowLifetimeTicks = calculateDespawnTime("death-pile-protection.overflow-despawn");
+        final String owner = player.getUniqueId().toString();
+
+        final List<Item> ownedDeathItems = new ArrayList<>();
+        for (Entity entity : chunk.getEntities()) {
+
+            if (!(entity instanceof Item item)) {
+
+                continue;
+
+            }
+
+            if (!isDeathPileItem(item)) {
+
+                continue;
+
+            }
+
+            final String o = getOwnerString(item);
+            if (o != null && o.equals(owner)) {
+
+                ownedDeathItems.add(item);
+
+            }
+
+        }
+
+        enforceOnOwnerChunkItems(ownedDeathItems, maxPiles, maxItems, reservePiles, reserveItems,
+                overflowLifetimeTicks);
+
+    }
+
+    private void enforceOnOwnerChunkItems(List<Item> items, int maxPiles, int maxItems, int reservePiles,
+            int reserveItems, int overflowLifetimeTicks)
+    {
+
+        if (items.isEmpty()) {
+
+            return;
+
+        }
+
+        final int targetPiles = maxPiles > 0 ? Math.max(0, maxPiles - reservePiles) : Integer.MAX_VALUE;
+        final int targetItems = maxItems > 0 ? Math.max(0, maxItems - reserveItems) : Integer.MAX_VALUE;
+
+        final Map<String, PileGroup> groups = new HashMap<>();
+
+        int protectedPiles = 0;
+        int protectedItems = 0;
+
+        for (Item item : items) {
+
+            if (!item.isValid()) {
+
+                continue;
+
+            }
+
+            // Never sets ticksLived < 1 or else bukkit freaks out.
+            ensureExpireData(item);
+
+            final String pileId = getPileId(item);
+            PileGroup group = groups.get(pileId);
+            if (group == null) {
+
+                group = new PileGroup();
+                group.created = getCreated(item);
+                groups.put(pileId, group);
+
+            }
+
+            group.items.add(item);
+            group.created = Math.min(group.created, getCreated(item));
+
+            if (isProtectedDeathPileItem(item)) {
+
+                group.protectedItemCount++;
+                group.protectedPile = true;
+
+            }
+
+        }
+
+        for (PileGroup group : groups.values()) {
+
+            if (group.protectedPile) {
+
+                protectedPiles++;
+                protectedItems += group.protectedItemCount;
+
+            }
+
+        }
+
+        if (protectedPiles <= targetPiles && protectedItems <= targetItems) {
+
+            return;
+
+        }
+
+        final List<PileGroup> ordered = new ArrayList<>(groups.values());
+        ordered.sort(Comparator.comparingLong(g -> g.created));
+
+        int i = 0;
+        while ((protectedPiles > targetPiles || protectedItems > targetItems) && i < ordered.size()) {
+
+            final PileGroup g = ordered.get(i++);
+            if (!g.protectedPile) {
+
+                continue;
+
+            }
+
+            protectedPiles--;
+            protectedItems -= g.protectedItemCount;
+
+            timeoutPile(g, overflowLifetimeTicks);
+
+        }
+
+    }
+
+    private static final class PileGroup {
+
+        private long created;
+        private boolean protectedPile;
+        private int protectedItemCount;
+        private final List<Item> items = new ArrayList<>();
+
+        private PileGroup() {
+
+            this.created = Long.MAX_VALUE;
+
+        }
+
+    }
+
+    private void handleEntitiesInChunk(Chunk chunk) {
+
+        final int maxPiles = getMaxPiles();
+        final int maxItems = getMaxItems();
+        final int overflowLifetimeTicks = calculateDespawnTime("death-pile-protection.overflow-despawn");
+
+        final Map<String, List<Item>> ownedDeathItems = new HashMap<>();
+
+        for (Entity entity : chunk.getEntities()) {
+
+            if (!(entity instanceof Item item)) {
+
+                continue;
+
+            }
+
+            // Never sets ticksLived < 1 or else bukkit freaks out.
+            ensureExpireData(item);
+
+            final boolean condition = protectionEnabled() && config.getBoolean("disable-death-despawns")
+                    && (maxPiles > 0 || maxItems > 0) && isDeathPileItem(item);
+
+            if (condition) {
+
+                final String owner = getOwnerString(item);
+                if (owner != null) {
+
+                    ownedDeathItems.computeIfAbsent(owner, k -> new ArrayList<>()).add(item);
 
                 }
 
             }
 
         }
+
+        if (protectionEnabled() && config.getBoolean("disable-death-despawns") && (maxPiles > 0 || maxItems > 0)) {
+
+            ownedDeathItems.values()
+                    .forEach(list -> enforceOnOwnerChunkItems(list, maxPiles, maxItems, 0, 0, overflowLifetimeTicks));
+
+        }
+
+    }
+
+    final int getMaxPiles() {
+
+        return config.getInt("death-pile-protection.max-piles-per-player-per-chunk", 12);
+
+    }
+
+    final int getMaxItems() {
+
+        return config.getInt("death-pile-protection.max-items-per-player-per-chunk", 1000);
+
+    }
+
+    public void scanLoadedChunks() {
+
+        Bukkit.getWorlds().forEach(world -> {
+
+            for (Chunk chunk : world.getLoadedChunks()) {
+
+                handleEntitiesInChunk(chunk);
+
+            }
+
+        });
 
     }
 
