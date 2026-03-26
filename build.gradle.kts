@@ -27,7 +27,7 @@ kotlin { jvmToolchain(17) }
 /* ----------------------------- Metadata ------------------------------ */
 group = "net.trueog.nodespawn-og" // Declare bundle identifier.
 
-version = "4.0" // Declare plugin version (will be in .jar).
+version = "4.1" // Declare plugin version (will be in .jar).
 
 val apiVersion = "1.19" // Declare minecraft server target version.
 

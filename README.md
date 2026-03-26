@@ -18,11 +18,11 @@ BadPylot, NotAlexNoyle.
 
 - Chat warnings for when dropped items are soon to despawn.
 
-- Stop player death piles from despawning, or change the amount of time it takes for them to despawn.
+- Stop player death piles, including their experience orbs, from despawning, or change the amount of time it takes for them to despawn.
 
-- Anti-abuse measures to stop players from using death piles to create lag machines.
+- Anti-abuse measures to stop players from using death piles and their experience orbs to create lag machines.
 
-- Clear dropped items with an in-game command (/clearentities).
+- Clear dropped items and experience orbs with an in-game command (/clearentities), while preserving protected death piles.
 
 - See how much time is left until entity cleanup with an in-game command (/cleanupin).
 
@@ -45,6 +45,14 @@ The resulting .jar file will be in build/libs/
 Running the plugin on your server requires [Utilities-OG](https://github.com/true-og/Utilities-OG) to be installed alongside it.
 
 # Changelog
+
+*Version 4.1:*
+
+- Death pile experience orbs now inherit the same pile ID, owner, and despawn timing as the items in their death pile.
+
+- Death pile protection now counts protected experience orbs toward the same per-player-per-chunk anti-abuse limits as death pile items.
+
+- Entity cleanup and /clearentities now preserve death pile experience orbs and remove non-death-pile experience orbs alongside dropped items.
 
 *Version 4.0:*
 

@@ -11,6 +11,7 @@ import org.bukkit.Chunk;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.entity.Item;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -28,10 +29,13 @@ public class EntityCleanupScheduler extends BukkitRunnable {
     private static final int WARN_3S_TICKS = 3 * TICKS_PER_SECOND; // 60
     private static final int WARN_2S_TICKS = 2 * TICKS_PER_SECOND; // 40
     private static final int WARN_1S_TICKS = 1 * TICKS_PER_SECOND; // 20
+    private static final long TICK_MS = 50L;
+    private static final int VANILLA_DESPAWN_TICKS = 6000;
     private final int intervalTicks;
     private int ticksRemaining;
     private final Set<Integer> warningTicks = new HashSet<>();
     private final NamespacedKey keyDeath = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_death");
+    private final NamespacedKey keyExpireAt = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_expire_at");
 
     public EntityCleanupScheduler() {
 
@@ -193,6 +197,8 @@ public class EntityCleanupScheduler extends BukkitRunnable {
     @Override
     public void run() {
 
+        maintainDeathPileExperienceOrbs();
+
         ticksRemaining -= STEP_TICKS;
         if (ticksRemaining > 0 && warningTicks.contains(ticksRemaining)) {
 
@@ -221,7 +227,7 @@ public class EntityCleanupScheduler extends BukkitRunnable {
 
         }
 
-        final int removed = clearNonDeathPileDroppedItemsInLoadedChunks();
+        final int removed = clearNonDeathPileDroppedEntitiesInLoadedChunks();
 
         // Success broadcast.
         NoDespawnOG.broadcastCleanupMessage(
@@ -254,7 +260,96 @@ public class EntityCleanupScheduler extends BukkitRunnable {
 
     }
 
-    int clearNonDeathPileDroppedItemsInLoadedChunks() {
+    private long getExpireAt(Entity entity) {
+
+        final Long v = entity.getPersistentDataContainer().get(keyExpireAt, PersistentDataType.LONG);
+
+        return v == null ? 0L : v.longValue();
+
+    }
+
+    private boolean isDeathPileEntity(Entity entity) {
+
+        final Byte deathFlag = entity.getPersistentDataContainer().get(keyDeath, PersistentDataType.BYTE);
+
+        return deathFlag != null && deathFlag.byteValue() == (byte) 1;
+
+    }
+
+    private void scheduleVanillaDespawnCheck(Entity entity, long now, long expireAt) {
+
+        if (!entity.isValid()) {
+
+            return;
+
+        }
+
+        if (expireAt == Long.MAX_VALUE) {
+
+            entity.setTicksLived(1);
+
+            return;
+
+        }
+
+        final long remainingMs = expireAt - now;
+        if (remainingMs <= 0L) {
+
+            entity.remove();
+
+            return;
+
+        }
+
+        final long remainingTicks = (remainingMs + (TICK_MS - 1)) / TICK_MS;
+        if (remainingTicks >= VANILLA_DESPAWN_TICKS) {
+
+            entity.setTicksLived(1);
+
+            return;
+
+        }
+
+        int age = (int) (VANILLA_DESPAWN_TICKS - remainingTicks);
+        age = Math.max(1, age);
+
+        entity.setTicksLived(age);
+
+    }
+
+    private void maintainDeathPileExperienceOrbs() {
+
+        final long now = System.currentTimeMillis();
+        for (World world : Bukkit.getWorlds()) {
+
+            for (Chunk chunk : world.getLoadedChunks()) {
+
+                for (Entity entity : chunk.getEntities()) {
+
+                    if (!(entity instanceof ExperienceOrb orb) || !orb.isValid() || !isDeathPileEntity(orb)) {
+
+                        continue;
+
+                    }
+
+                    final long expireAt = getExpireAt(orb);
+                    if (expireAt == 0L) {
+
+                        continue;
+
+                    }
+
+                    scheduleVanillaDespawnCheck(orb, now, expireAt);
+
+                }
+
+            }
+
+        }
+
+    }
+
+    int clearNonDeathPileDroppedEntitiesInLoadedChunks() {
 
         int removed = 0;
         final List<World> worlds = Bukkit.getWorlds();
@@ -264,17 +359,15 @@ public class EntityCleanupScheduler extends BukkitRunnable {
 
                 for (Entity entity : chunk.getEntities()) {
 
-                    if (!(entity instanceof Item item) || !item.isValid()) {
+                    if (!((entity instanceof Item) || (entity instanceof ExperienceOrb)) || !entity.isValid()) {
 
                         continue;
 
                     }
 
-                    final Byte deathFlag = item.getPersistentDataContainer().get(keyDeath, PersistentDataType.BYTE);
+                    if (!isDeathPileEntity(entity)) {
 
-                    if (deathFlag == null || deathFlag.byteValue() != (byte) 1) {
-
-                        item.remove();
+                        entity.remove();
 
                         removed++;
 

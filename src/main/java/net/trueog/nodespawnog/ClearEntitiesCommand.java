@@ -35,7 +35,7 @@ public class ClearEntitiesCommand implements CommandExecutor {
 
         }
 
-        final int removed = entityCleanupScheduler.clearNonDeathPileDroppedItemsInLoadedChunks();
+        final int removed = entityCleanupScheduler.clearNonDeathPileDroppedEntitiesInLoadedChunks();
         if (sender instanceof Player player) {
 
             UtilitiesOG.trueogMessage(player,

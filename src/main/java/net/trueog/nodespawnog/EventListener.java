@@ -14,12 +14,14 @@ import org.bukkit.Chunk;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.ItemDespawnEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
@@ -44,6 +46,19 @@ public class EventListener implements Listener {
     public void onItemSpawn(ItemSpawnEvent event) {
 
         ensureExpireData(event.getEntity());
+
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onEntitySpawn(EntitySpawnEvent event) {
+
+        if (!(event.getEntity() instanceof ExperienceOrb orb)) {
+
+            return;
+
+        }
+
+        ensureExpireData(orb);
 
     }
 
@@ -92,13 +107,17 @@ public class EventListener implements Listener {
 
         }
 
-        if (event.getDrops().isEmpty()) {
+        final int droppedExp = event.getDroppedExp();
+        final boolean hasDrops = !event.getDrops().isEmpty();
+        final boolean hasExp = droppedExp > 0;
+        if (!hasDrops && !hasExp) {
 
             return;
 
         }
 
-        enforcePlayerPerChunkLimits(player, player.getLocation().getChunk(), event.getDrops().size(), 1, getMaxPiles(),
+        final int reservedEntities = event.getDrops().size() + (hasExp ? 1 : 0);
+        enforcePlayerPerChunkLimits(player, player.getLocation().getChunk(), reservedEntities, 1, getMaxPiles(),
                 getMaxItems());
 
         final boolean disableDeathDespawns = config.getBoolean("disable-death-despawns");
@@ -113,17 +132,24 @@ public class EventListener implements Listener {
                 .forEach(droppedItem ->
                 {
 
-                    final PersistentDataContainer pdc = droppedItem.getPersistentDataContainer();
-
-                    pdc.set(keyDeath, PersistentDataType.BYTE, (byte) 1);
-                    pdc.set(keyOwner, PersistentDataType.STRING, ownerStr);
-                    pdc.set(keyPile, PersistentDataType.STRING, pileId);
-                    pdc.set(keyCreated, PersistentDataType.LONG, created);
-                    pdc.set(keyExpireAt, PersistentDataType.LONG, expireAt);
+                    markDeathPileEntity(droppedItem, ownerStr, pileId, created, expireAt);
 
                     scheduleVanillaDespawnCheck(droppedItem, created, expireAt);
 
                 });
+
+        if (hasExp) {
+
+            player.getWorld().spawn(player.getLocation(), ExperienceOrb.class, orb -> {
+
+                orb.setExperience(droppedExp);
+                markDeathPileEntity(orb, ownerStr, pileId, created, expireAt);
+                scheduleVanillaDespawnCheck(orb, created, expireAt);
+
+            });
+            event.setDroppedExp(0);
+
+        }
 
         event.getDrops().clear();
 
@@ -166,31 +192,55 @@ public class EventListener implements Listener {
 
     }
 
-    private boolean isDeathPileItem(Item item) {
+    private void markDeathPileEntity(Entity entity, String ownerStr, String pileId, long created, long expireAt) {
 
-        final Byte flag = item.getPersistentDataContainer().get(keyDeath, PersistentDataType.BYTE);
+        final PersistentDataContainer pdc = entity.getPersistentDataContainer();
+
+        pdc.set(keyDeath, PersistentDataType.BYTE, (byte) 1);
+        pdc.set(keyOwner, PersistentDataType.STRING, ownerStr);
+        pdc.set(keyPile, PersistentDataType.STRING, pileId);
+        pdc.set(keyCreated, PersistentDataType.LONG, created);
+        pdc.set(keyExpireAt, PersistentDataType.LONG, expireAt);
+
+    }
+
+    private boolean isDeathPileEntity(Entity entity) {
+
+        final Byte flag = entity.getPersistentDataContainer().get(keyDeath, PersistentDataType.BYTE);
 
         return Byte.valueOf((byte) 1).equals(flag);
 
     }
 
-    private long getExpireAt(Item item) {
+    private boolean isDeathPileItem(Item item) {
 
-        final Long v = item.getPersistentDataContainer().get(keyExpireAt, PersistentDataType.LONG);
+        return isDeathPileEntity(item);
+
+    }
+
+    private boolean isDeathPileOrb(ExperienceOrb orb) {
+
+        return isDeathPileEntity(orb);
+
+    }
+
+    private long getExpireAt(Entity entity) {
+
+        final Long v = entity.getPersistentDataContainer().get(keyExpireAt, PersistentDataType.LONG);
 
         return v == null ? 0L : v.longValue();
 
     }
 
-    private void setExpireAt(Item item, long expireAt) {
+    private void setExpireAt(Entity entity, long expireAt) {
 
-        item.getPersistentDataContainer().set(keyExpireAt, PersistentDataType.LONG, expireAt);
+        entity.getPersistentDataContainer().set(keyExpireAt, PersistentDataType.LONG, expireAt);
 
     }
 
-    private long ensureCreatedMillis(Item item, long now) {
+    private long ensureCreatedMillis(Entity entity, long now) {
 
-        final PersistentDataContainer pdc = item.getPersistentDataContainer();
+        final PersistentDataContainer pdc = entity.getPersistentDataContainer();
         final Long created = pdc.get(keyCreated, PersistentDataType.LONG);
         if (created != null && created.longValue() > 0L) {
 
@@ -199,7 +249,7 @@ public class EventListener implements Listener {
         }
 
         // Infer created time from current ticks lived (always >= 0 on Bukkit side).
-        final int lived = Math.max(0, item.getTicksLived());
+        final int lived = Math.max(0, entity.getTicksLived());
         final long inferred = now - (long) lived * TICK_MS;
 
         pdc.set(keyCreated, PersistentDataType.LONG, inferred);
@@ -211,9 +261,9 @@ public class EventListener implements Listener {
     /**
      * Set ticksLived safely (>= 1) so vanilla despawn checks happen when we want.
      */
-    private void scheduleVanillaDespawnCheck(Item item, long now, long expireAt) {
+    private void scheduleVanillaDespawnCheck(Entity entity, long now, long expireAt) {
 
-        if (!item.isValid()) {
+        if (!entity.isValid()) {
 
             return;
 
@@ -221,7 +271,7 @@ public class EventListener implements Listener {
 
         if (expireAt == Long.MAX_VALUE) {
 
-            item.setTicksLived(1);
+            entity.setTicksLived(1);
 
             return;
 
@@ -230,7 +280,7 @@ public class EventListener implements Listener {
         final long remainingMs = expireAt - now;
         if (remainingMs <= 0L) {
 
-            item.remove();
+            entity.remove();
 
             return;
 
@@ -242,7 +292,7 @@ public class EventListener implements Listener {
 
             // Too far away to represent (would require negative); schedule another check
             // 6000 ticks later.
-            item.setTicksLived(1);
+            entity.setTicksLived(1);
 
             return;
 
@@ -252,7 +302,7 @@ public class EventListener implements Listener {
 
         age = Math.max(1, age);
 
-        item.setTicksLived(age);
+        entity.setTicksLived(age);
 
     }
 
@@ -261,26 +311,38 @@ public class EventListener implements Listener {
      */
     private void ensureExpireData(Item item) {
 
+        ensureExpireData((Entity) item);
+
+    }
+
+    private void ensureExpireData(ExperienceOrb orb) {
+
+        ensureExpireData((Entity) orb);
+
+    }
+
+    private void ensureExpireData(Entity entity) {
+
         final long now = System.currentTimeMillis();
-        long expireAt = getExpireAt(item);
+        long expireAt = getExpireAt(entity);
         if (expireAt != 0L) {
 
-            scheduleVanillaDespawnCheck(item, now, expireAt);
+            scheduleVanillaDespawnCheck(entity, now, expireAt);
 
             return;
 
         }
 
-        final long created = ensureCreatedMillis(item, now);
+        final long created = ensureCreatedMillis(entity, now);
         final boolean disableDeathDespawns = config.getBoolean("disable-death-despawns");
-        if (isDeathPileItem(item)) {
+        if (isDeathPileEntity(entity)) {
 
             if (disableDeathDespawns) {
 
                 expireAt = Long.MAX_VALUE;
-                setExpireAt(item, expireAt);
+                setExpireAt(entity, expireAt);
 
-                scheduleVanillaDespawnCheck(item, now, expireAt);
+                scheduleVanillaDespawnCheck(entity, now, expireAt);
 
                 return;
 
@@ -289,9 +351,15 @@ public class EventListener implements Listener {
             final int deathLifetimeTicks = calculateDespawnTime("time-to-death-despawns");
 
             expireAt = created + ticksToMs(deathLifetimeTicks);
-            setExpireAt(item, expireAt);
+            setExpireAt(entity, expireAt);
 
-            scheduleVanillaDespawnCheck(item, now, expireAt);
+            scheduleVanillaDespawnCheck(entity, now, expireAt);
+
+            return;
+
+        }
+
+        if (entity instanceof ExperienceOrb) {
 
             return;
 
@@ -300,9 +368,9 @@ public class EventListener implements Listener {
         final int defaultLifetimeTicks = calculateDespawnTime("time-to-despawn");
 
         expireAt = created + ticksToMs(defaultLifetimeTicks);
-        setExpireAt(item, expireAt);
+        setExpireAt(entity, expireAt);
 
-        scheduleVanillaDespawnCheck(item, now, expireAt);
+        scheduleVanillaDespawnCheck(entity, now, expireAt);
 
     }
 
@@ -378,23 +446,29 @@ public class EventListener implements Listener {
 
     }
 
-    private String getOwnerString(Item item) {
+    private boolean isProtectedDeathPileOrb(ExperienceOrb orb) {
 
-        return item.getPersistentDataContainer().get(keyOwner, PersistentDataType.STRING);
-
-    }
-
-    private String getPileId(Item item) {
-
-        final String pile = item.getPersistentDataContainer().get(keyPile, PersistentDataType.STRING);
-
-        return (pile == null) ? item.getUniqueId().toString() : pile;
+        return isDeathPileOrb(orb) && getExpireAt(orb) == Long.MAX_VALUE;
 
     }
 
-    private long getCreated(Item item) {
+    private String getOwnerString(Entity entity) {
 
-        final Long created = item.getPersistentDataContainer().get(keyCreated, PersistentDataType.LONG);
+        return entity.getPersistentDataContainer().get(keyOwner, PersistentDataType.STRING);
+
+    }
+
+    private String getPileId(Entity entity) {
+
+        final String pile = entity.getPersistentDataContainer().get(keyPile, PersistentDataType.STRING);
+
+        return (pile == null) ? entity.getUniqueId().toString() : pile;
+
+    }
+
+    private long getCreated(Entity entity) {
+
+        final Long created = entity.getPersistentDataContainer().get(keyCreated, PersistentDataType.LONG);
 
         return created == null ? 0L : created.longValue();
 
@@ -410,10 +484,10 @@ public class EventListener implements Listener {
 
         final long now = System.currentTimeMillis();
         final long expireAt = now + ticksToMs(overflowLifetimeTicks);
-        for (Iterator<Item> it = group.items.iterator(); it.hasNext();) {
+        for (Iterator<Entity> it = group.entities.iterator(); it.hasNext();) {
 
-            final Item item = it.next();
-            if (!item.isValid()) {
+            final Entity entity = it.next();
+            if (!entity.isValid()) {
 
                 it.remove();
 
@@ -421,8 +495,8 @@ public class EventListener implements Listener {
 
             }
 
-            setExpireAt(item, expireAt);
-            scheduleVanillaDespawnCheck(item, now, expireAt);
+            setExpireAt(entity, expireAt);
+            scheduleVanillaDespawnCheck(entity, now, expireAt);
 
         }
 
@@ -456,36 +530,36 @@ public class EventListener implements Listener {
         final int overflowLifetimeTicks = calculateDespawnTime("death-pile-protection.overflow-despawn");
         final String owner = player.getUniqueId().toString();
 
-        final List<Item> ownedDeathItems = new ArrayList<>();
+        final List<Entity> ownedDeathEntities = new ArrayList<>();
         for (Entity entity : chunk.getEntities()) {
 
-            if (!(entity instanceof Item item)) {
+            if (!(entity instanceof Item || entity instanceof ExperienceOrb)) {
 
                 continue;
 
             }
 
-            if (!isDeathPileItem(item)) {
+            if (!isDeathPileEntity(entity)) {
 
                 continue;
 
             }
 
-            final String o = getOwnerString(item);
+            final String o = getOwnerString(entity);
             if (o != null && o.equals(owner)) {
 
-                ownedDeathItems.add(item);
+                ownedDeathEntities.add(entity);
 
             }
 
         }
 
-        enforceOnOwnerChunkItems(ownedDeathItems, maxPiles, maxItems, reservePiles, reserveItems,
+        enforceOnOwnerChunkItems(ownedDeathEntities, maxPiles, maxItems, reservePiles, reserveItems,
                 overflowLifetimeTicks);
 
     }
 
-    private void enforceOnOwnerChunkItems(List<Item> items, int maxPiles, int maxItems, int reservePiles,
+    private void enforceOnOwnerChunkItems(List<Entity> items, int maxPiles, int maxItems, int reservePiles,
             int reserveItems, int overflowLifetimeTicks)
     {
 
@@ -503,31 +577,33 @@ public class EventListener implements Listener {
         int protectedPiles = 0;
         int protectedItems = 0;
 
-        for (Item item : items) {
+        for (Entity entity : items) {
 
-            if (!item.isValid()) {
+            if (!entity.isValid()) {
 
                 continue;
 
             }
 
             // Never sets ticksLived < 1 or else bukkit freaks out.
-            ensureExpireData(item);
+            ensureExpireData(entity);
 
-            final String pileId = getPileId(item);
+            final String pileId = getPileId(entity);
             PileGroup group = groups.get(pileId);
             if (group == null) {
 
                 group = new PileGroup();
-                group.created = getCreated(item);
+                group.created = getCreated(entity);
                 groups.put(pileId, group);
 
             }
 
-            group.items.add(item);
-            group.created = Math.min(group.created, getCreated(item));
+            group.entities.add(entity);
+            group.created = Math.min(group.created, getCreated(entity));
 
-            if (isProtectedDeathPileItem(item)) {
+            if ((entity instanceof Item item && isProtectedDeathPileItem(item))
+                    || (entity instanceof ExperienceOrb orb && isProtectedDeathPileOrb(orb)))
+            {
 
                 group.protectedItemCount++;
                 group.protectedPile = true;
@@ -580,7 +656,7 @@ public class EventListener implements Listener {
         private long created;
         private boolean protectedPile;
         private int protectedItemCount;
-        private final List<Item> items = new ArrayList<>();
+        private final List<Entity> entities = new ArrayList<>();
 
         private PileGroup() {
 
@@ -596,28 +672,35 @@ public class EventListener implements Listener {
         final int maxItems = getMaxItems();
         final int overflowLifetimeTicks = calculateDespawnTime("death-pile-protection.overflow-despawn");
 
-        final Map<String, List<Item>> ownedDeathItems = new HashMap<>();
+        final Map<String, List<Entity>> ownedDeathItems = new HashMap<>();
 
         for (Entity entity : chunk.getEntities()) {
 
-            if (!(entity instanceof Item item)) {
+            if (entity instanceof Item item) {
+
+                // Never sets ticksLived < 1 or else bukkit freaks out.
+                ensureExpireData(item);
+
+            } else if (entity instanceof ExperienceOrb orb) {
+
+                // Never sets ticksLived < 1 or else bukkit freaks out.
+                ensureExpireData(orb);
+
+            } else {
 
                 continue;
 
             }
 
-            // Never sets ticksLived < 1 or else bukkit freaks out.
-            ensureExpireData(item);
-
             final boolean condition = protectionEnabled() && config.getBoolean("disable-death-despawns")
-                    && (maxPiles > 0 || maxItems > 0) && isDeathPileItem(item);
+                    && (maxPiles > 0 || maxItems > 0) && isDeathPileEntity(entity);
 
             if (condition) {
 
-                final String owner = getOwnerString(item);
+                final String owner = getOwnerString(entity);
                 if (owner != null) {
 
-                    ownedDeathItems.computeIfAbsent(owner, k -> new ArrayList<>()).add(item);
+                    ownedDeathItems.computeIfAbsent(owner, k -> new ArrayList<>()).add(entity);
 
                 }
 
