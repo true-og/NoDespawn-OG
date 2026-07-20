@@ -21,6 +21,19 @@ time-to-death-despawns: 30m
 # How often to run the automatic dropped-entity cleanup across all loaded chunks.
 entity-cleanup-interval: 30m
 
+# Toggles for each entity cleanup broadcast message.
+cleanup-messages:
+  5m: false
+  2m: true
+  1m: true
+  30s: true
+  10s: true
+  3s: true
+  2s: true
+  1s: true
+  # The "Entity cleanup complete" broadcast.
+  complete: true
+
 death-pile-protection:
   # Enables per-player-per-chunk caps to prevent death piles being used for lag.
   enabled: true

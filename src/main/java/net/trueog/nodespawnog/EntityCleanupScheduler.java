@@ -133,19 +133,64 @@ public class EntityCleanupScheduler extends BukkitRunnable {
 
     }
 
+    private static boolean isMessageEnabled(String key, boolean fallback) {
+
+        return NoDespawnOG.getPlugin().getConfig().getBoolean("cleanup-messages." + key, fallback);
+
+    }
+
     // Dynamic warnings.
     private void initWarningTicks() {
 
         warningTicks.clear();
 
-        addWarning(WARN_5M_TICKS);
-        addWarning(WARN_2M_TICKS);
-        addWarning(WARN_1M_TICKS);
-        addWarning(WARN_30S_TICKS);
-        addWarning(WARN_10S_TICKS);
-        addWarning(WARN_3S_TICKS);
-        addWarning(WARN_2S_TICKS);
-        addWarning(WARN_1S_TICKS);
+        if (isMessageEnabled("5m", false)) {
+
+            addWarning(WARN_5M_TICKS);
+
+        }
+
+        if (isMessageEnabled("2m", true)) {
+
+            addWarning(WARN_2M_TICKS);
+
+        }
+
+        if (isMessageEnabled("1m", true)) {
+
+            addWarning(WARN_1M_TICKS);
+
+        }
+
+        if (isMessageEnabled("30s", true)) {
+
+            addWarning(WARN_30S_TICKS);
+
+        }
+
+        if (isMessageEnabled("10s", true)) {
+
+            addWarning(WARN_10S_TICKS);
+
+        }
+
+        if (isMessageEnabled("3s", true)) {
+
+            addWarning(WARN_3S_TICKS);
+
+        }
+
+        if (isMessageEnabled("2s", true)) {
+
+            addWarning(WARN_2S_TICKS);
+
+        }
+
+        if (isMessageEnabled("1s", true)) {
+
+            addWarning(WARN_1S_TICKS);
+
+        }
 
         // Scaling: if interval is under 5 minutes, add relative warnings at 50% and 25%
         if (intervalTicks >= WARN_5M_TICKS) {
@@ -230,8 +275,12 @@ public class EntityCleanupScheduler extends BukkitRunnable {
         final int removed = clearNonDeathPileDroppedEntitiesInLoadedChunks();
 
         // Success broadcast.
-        NoDespawnOG.broadcastCleanupMessage(
-                NoDespawnOG.getPrefix() + "&aEntity cleanup complete. Cleared &e" + removed + "&a entities.");
+        if (isMessageEnabled("complete", true)) {
+
+            NoDespawnOG.broadcastCleanupMessage(
+                    NoDespawnOG.getPrefix() + "&aEntity cleanup complete. Cleared &e" + removed + "&a entities.");
+
+        }
 
         ticksRemaining = intervalTicks;
 
