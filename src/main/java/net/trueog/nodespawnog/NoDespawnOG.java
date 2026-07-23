@@ -56,7 +56,7 @@ public class NoDespawnOG extends JavaPlugin {
         }
 
         // Log valid plugin launch to console.
-        getLogger().info("NoDespawn-OG 4.0 Loaded.");
+        getLogger().info("NoDespawn-OG " + plugin.getPluginMeta().getVersion() + " Loaded.");
 
     }
 
