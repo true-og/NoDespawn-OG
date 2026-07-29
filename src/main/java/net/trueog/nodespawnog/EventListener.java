@@ -39,6 +39,10 @@ public class EventListener implements Listener {
     private final NamespacedKey keyCreated = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_created");
     private final NamespacedKey keyExpireAt = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_expire_at");
 
+    // Other plugins tag their own items/orbs with nodespawn-og:protect to opt them
+    // out of despawning and cleanup entirely (minigame objectives and the like).
+    private final NamespacedKey keyProtect = new NamespacedKey(NoDespawnOG.getPlugin(), "protect");
+
     private static final int VANILLA_DESPAWN_TICKS = 6000;
     private static final long TICK_MS = 50L;
 
@@ -66,6 +70,17 @@ public class EventListener implements Listener {
     public void onItemDespawn(ItemDespawnEvent event) {
 
         final Item item = event.getEntity();
+
+        if (isProtectedEntity(item)) {
+
+            event.setCancelled(true);
+
+            item.setTicksLived(1);
+
+            return;
+
+        }
+
         final long expireAt = getExpireAt(item);
         if (expireAt == 0L) {
 
@@ -212,6 +227,14 @@ public class EventListener implements Listener {
 
     }
 
+    private boolean isProtectedEntity(Entity entity) {
+
+        final Byte flag = entity.getPersistentDataContainer().get(keyProtect, PersistentDataType.BYTE);
+
+        return Byte.valueOf((byte) 1).equals(flag);
+
+    }
+
     private boolean isDeathPileItem(Item item) {
 
         return isDeathPileEntity(item);
@@ -322,6 +345,13 @@ public class EventListener implements Listener {
     }
 
     private void ensureExpireData(Entity entity) {
+
+        // Protected entities are never given despawn data, so nothing ages them out.
+        if (isProtectedEntity(entity)) {
+
+            return;
+
+        }
 
         final long now = System.currentTimeMillis();
         long expireAt = getExpireAt(entity);

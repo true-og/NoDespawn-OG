@@ -36,6 +36,7 @@ public class EntityCleanupScheduler extends BukkitRunnable {
     private final Set<Integer> warningTicks = new HashSet<>();
     private final NamespacedKey keyDeath = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_death");
     private final NamespacedKey keyExpireAt = new NamespacedKey(NoDespawnOG.getPlugin(), "nodespawn_expire_at");
+    private final NamespacedKey keyProtect = new NamespacedKey(NoDespawnOG.getPlugin(), "protect");
 
     public EntityCleanupScheduler() {
 
@@ -325,6 +326,16 @@ public class EntityCleanupScheduler extends BukkitRunnable {
 
     }
 
+    // Entities another plugin tagged nodespawn-og:protect are off limits to
+    // cleanup.
+    private boolean isProtectedEntity(Entity entity) {
+
+        final Byte protectFlag = entity.getPersistentDataContainer().get(keyProtect, PersistentDataType.BYTE);
+
+        return protectFlag != null && protectFlag.byteValue() == (byte) 1;
+
+    }
+
     private void scheduleVanillaDespawnCheck(Entity entity, long now, long expireAt) {
 
         if (!entity.isValid()) {
@@ -414,7 +425,7 @@ public class EntityCleanupScheduler extends BukkitRunnable {
 
                     }
 
-                    if (!isDeathPileEntity(entity)) {
+                    if (!isDeathPileEntity(entity) && !isProtectedEntity(entity)) {
 
                         entity.remove();
 
