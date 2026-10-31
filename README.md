@@ -1,6 +1,6 @@
 # NoDespawn-OG
 
-![Icon](https://raw.githubusercontent.com/true-og/NoDespawn-OG/master/assets/nodespawn-og-logo-small.png)
+![Icon](https://git.trueog.net/trueog/NoDespawn-OG/raw/branch/master/assets/nodespawn-og-logo-small.png)
 
 A sophisticated fork of [NoDespawn](https://github.com/rydklein/NoDespawn) made for [TrueOG Network](https://true-og.net/) designed to replace closed-source ClearLag plugins and SaveDeathDrops.
 
@@ -77,7 +77,7 @@ nodespawnog.cleanupin
 
 The resulting .jar file will be in build/libs/
 
-Running the plugin on your server requires [Utilities-OG](https://github.com/true-og/Utilities-OG) to be installed alongside it.
+Running the plugin on your server requires [Utilities-OG](https://git.trueog.net/trueog/Utilities-OG) to be installed alongside it.
 
 # Changelog
 
