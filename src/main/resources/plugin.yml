@@ -2,7 +2,7 @@ main: net.trueog.nodespawnog.NoDespawnOG
 name: NoDespawn-OG
 authors: [BadPylot, NotAlexNoyle]
 description: A Spigot/Paper/Purpur plugin to control item despawn behavior. Crafted by TrueOG Network.
-website: https://github.com/true-og/NoDespawn-OG
+website: https://git.trueog.net/trueog/NoDespawn-OG
 version: '${version}'
 api-version: '${apiVersion}'
 depend: [Utilities-OG]
